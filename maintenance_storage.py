@@ -43,8 +43,8 @@ def _get_env_value(*keys: str) -> str | None:
 
 @lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
-    supabase_url = _get_env_value("SUPABASE_URL", "SUPABASE URL") or st.secrets("SUPABASE_URL")
-    supabase_key = _get_env_value("SUPABASE_KEY", "SUPABASE KEY") or st.secrets("SUPABASE_KEY")
+    supabase_url = _get_env_value("SUPABASE_URL", "SUPABASE URL") or st.secrets["SUPABASE_URL"]
+    supabase_key = _get_env_value("SUPABASE_KEY", "SUPABASE KEY") or st.secrets["SUPABASE_KEY"]
     if not supabase_url or not supabase_key:
         raise RuntimeError(
             "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY, or keep their current spaced equivalents, in .env."
