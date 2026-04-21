@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
+import streamlit as st
 
 from supabase import Client, create_client
 
@@ -39,10 +40,11 @@ def _get_env_value(*keys: str) -> str | None:
     return None
 
 
+
 @lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
-    supabase_url = _get_env_value("SUPABASE_URL", "SUPABASE URL")
-    supabase_key = _get_env_value("SUPABASE_KEY", "SUPABASE KEY")
+    supabase_url = _get_env_value("SUPABASE_URL", "SUPABASE URL") or st.secrets("SUPABASE_URL")
+    supabase_key = _get_env_value("SUPABASE_KEY", "SUPABASE KEY") or st.secrets("SUPABASE_KEY")
     if not supabase_url or not supabase_key:
         raise RuntimeError(
             "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY, or keep their current spaced equivalents, in .env."
@@ -51,6 +53,7 @@ def get_supabase_client() -> Client:
 
 
 def _execute(query: Any, *, action: str) -> Any:
+    
     try:
         return query.execute()
     except Exception as error:
