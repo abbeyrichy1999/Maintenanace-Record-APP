@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from maintenance_storage import (
-    DB_PATH,
+    DATA_BACKEND_NAME,
     POWER_SOURCES,
     fetch_diesel_entries,
     fetch_power_readings,
@@ -124,7 +124,11 @@ def build_power_entry_form() -> None:
             st.error(error)
         return
 
-    save_power_readings(day_name, record_date.isoformat(), readings_to_save)
+    try:
+        save_power_readings(day_name, record_date.isoformat(), readings_to_save)
+    except RuntimeError as error:
+        st.error(str(error))
+        return
     st.success("Power readings saved successfully.")
 
 
@@ -207,7 +211,7 @@ def build_diesel_entry_form() -> None:
             ),
             diesel_pumped=parse_optional_float(diesel_pumped, "Diesel Pumped"),
         )
-    except ValueError as error:
+    except (RuntimeError, ValueError) as error:
         st.error(str(error))
         return
 
@@ -217,8 +221,12 @@ def build_diesel_entry_form() -> None:
 def build_history_view() -> None:
     st.subheader("Saved Records")
 
-    power_records = fetch_power_readings()
-    diesel_records = fetch_diesel_entries()
+    try:
+        power_records = fetch_power_readings()
+        diesel_records = fetch_diesel_entries()
+    except RuntimeError as error:
+        st.error(str(error))
+        return
 
     power_column, diesel_column = st.columns(2)
 
@@ -239,10 +247,15 @@ def build_history_view() -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Maintenance Record App", layout="wide")
-    initialize_database()
+    try:
+        initialize_database()
+    except RuntimeError as error:
+        st.title("Maintenance Record App")
+        st.error(str(error))
+        return
 
     st.title("Maintenance Record App")
-    st.caption(f"SQLite database file: {DB_PATH.name}")
+    st.caption(f"Data is stored in {DATA_BACKEND_NAME}.")
 
     power_tab, diesel_tab, history_tab = st.tabs(
         ["Power Readings", "Diesel", "Records"]
