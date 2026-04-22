@@ -1,59 +1,71 @@
 from __future__ import annotations
 
-import os
 from datetime import date, datetime, timedelta, timezone
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Iterable
+
 import streamlit as st
 
 from supabase import Client, create_client
 
 
-ENV_PATH = Path(__file__).with_name(".env")
 DATA_BACKEND_NAME = "Supabase"
 POWER_SOURCES = ("Mains", "Generator 1", "Generator 2", "Generator 3")
 
 
-@lru_cache(maxsize=1)
-def _load_env_values() -> dict[str, str]:
-    if not ENV_PATH.exists():
-        return {}
+def _get_secret_value(*keys: str) -> str | None:
+    try:
+        secrets = st.secrets
+    except Exception:
+        return None
 
-    values: dict[str, str] = {}
-    for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    for key in keys:
+        try:
+            if key in secrets:
+                value = secrets[key]
+                if isinstance(value, str) and value:
+                    return value
+        except Exception:
             continue
 
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
-    return values
+    for section_name in ("supabase", "SUPABASE"):
+        try:
+            if section_name not in secrets:
+                continue
+            section = secrets[section_name]
+        except Exception:
+            continue
 
+        for key in keys:
+            nested_keys = (
+                key,
+                key.lower(),
+                key.replace("SUPABASE_", "").replace("SUPABASE ", "").lower(),
+            )
+            for nested_key in nested_keys:
+                try:
+                    if nested_key in section:
+                        value = section[nested_key]
+                        if isinstance(value, str) and value:
+                            return value
+                except Exception:
+                    continue
 
-def _get_env_value(*keys: str) -> str | None:
-    env_values = _load_env_values()
-    for key in keys:
-        value = os.getenv(key) or env_values.get(key)
-        if value:
-            return value
     return None
-
 
 
 @lru_cache(maxsize=1)
 def get_supabase_client() -> Client:
-    supabase_url = _get_env_value("SUPABASE_URL", "SUPABASE URL") or st.secrets["SUPABASE_URL"]
-    supabase_key = _get_env_value("SUPABASE_KEY", "SUPABASE KEY") or st.secrets["SUPABASE_KEY"]
+    supabase_url = _get_secret_value("SUPABASE_URL", "SUPABASE URL")
+    supabase_key = _get_secret_value("SUPABASE_KEY", "SUPABASE KEY")
     if not supabase_url or not supabase_key:
         raise RuntimeError(
-            "Supabase credentials are missing. Add SUPABASE_URL and SUPABASE_KEY, or keep their current spaced equivalents, in .env."
+            "Supabase credentials are missing from Streamlit secrets. Add SUPABASE_URL and SUPABASE_KEY to st.secrets."
         )
     return create_client(supabase_url, supabase_key)
 
 
 def _execute(query: Any, *, action: str) -> Any:
-    
     try:
         return query.execute()
     except Exception as error:
